@@ -55,8 +55,8 @@ message and skips that phase rather than crashing.
 ## Installation
 
 ```bash
-git clone https://github.com/ZlatkoRistic/OpenAPI-Discovery.git
-cd OpenAPI-Discovery
+git clone https://github.com/<your-username>/<your-repo>.git
+cd <your-repo>
 
 python3 -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
@@ -75,16 +75,59 @@ are callable directly.
 
 ---
 
+## Wordlists (SecLists)
+
+This tool does not bundle wordlists. All wordlist recommendations below are from
+[SecLists](https://github.com/danielmiessler/SecLists) — the standard wordlist
+collection used across the security research community.
+
+### Install SecLists
+
+```bash
+# macOS
+brew install seclists
+# Installs to /usr/share/seclists or /opt/homebrew/share/seclists
+
+# Linux
+sudo apt install seclists
+# Installs to /usr/share/seclists
+
+# Manual (any OS)
+git clone https://github.com/danielmiessler/SecLists.git ~/SecLists
+```
+
+### Recommended wordlists
+
+| Purpose | Flag | SecLists path | Notes |
+|---|---|---|---|
+| General API endpoint discovery | `-w` | `Discovery/Web-Content/api/api-endpoints.txt` | ~580 common API paths, clean signal |
+| Broad endpoint discovery | `-w` | `Discovery/Web-Content/raft-large-words.txt` | ~120k words, high coverage, slower |
+| Focused REST API paths | `-w` | `Discovery/Web-Content/common-api-endpoints-mazen160.txt` | ~174 REST-style paths, fast |
+| Admin / management routes | `--chain-wordlists` | `Discovery/Web-Content/big.txt` | Good second-pass wordlist after initial discovery |
+| Parameter name fuzzing | `--param-wordlist` | `Discovery/Web-Content/burp-parameter-names.txt` | ~6k common param names — use this, not a path wordlist |
+
+### Typical paths after `brew install seclists`
+
+```
+/usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt
+/usr/share/seclists/Discovery/Web-Content/raft-large-words.txt
+/usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt
+/usr/share/seclists/Discovery/Web-Content/common-api-endpoints-mazen160.txt
+/usr/share/seclists/Discovery/Web-Content/big.txt
+```
+
+---
+
 ## Quick start
 
 ```bash
 python3 api_discovery.py \
   -t http://127.0.0.1:5000 \
-  -w wordlists/masterlist.txt \
+  -w /usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt \
   --smart-chain \
   --katana \
   --methods GET POST PUT DELETE \
-  --param-wordlist wordlists/burp-parameter-names.txt \
+  --param-wordlist /usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt \
   --openapi openapi_spec.yaml \
   -o results.txt \
   -j results.json \
@@ -103,45 +146,74 @@ The tool has four independent modes, selected by which flags you pass.
 
 ### 1. `--smart-chain` (recommended)
 
-The full hybrid pipeline described above. Works with a wordlist alone, Katana alone, or
-both together.
+The full hybrid pipeline. Works with a wordlist alone, Katana alone, or both together.
 
 ```bash
-# ffuf only (no Katana installed / not wanted)
-python3 api_discovery.py -t http://target -w wordlist.txt --smart-chain
+# ffuf only (no Katana installed or not wanted)
+python3 api_discovery.py \
+  -t http://target \
+  -w /usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt \
+  --smart-chain \
+  --methods GET POST PUT DELETE \
+  --openapi openapi_spec.yaml
 
-# Katana (standard, no JS execution) + ffuf
-python3 api_discovery.py -t http://target -w wordlist.txt --smart-chain --katana
+# Katana standard (no JS execution) + ffuf
+python3 api_discovery.py \
+  -t http://target \
+  -w /usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt \
+  --smart-chain --katana \
+  --methods GET POST PUT DELETE \
+  --openapi openapi_spec.yaml
 
 # Katana headless (executes JS, follows SPA routes) + ffuf
-python3 api_discovery.py -t http://target -w wordlist.txt --smart-chain --headless
+python3 api_discovery.py \
+  -t http://target \
+  -w /usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt \
+  --smart-chain --headless \
+  --methods GET POST PUT DELETE \
+  --openapi openapi_spec.yaml
 
-# Katana only, no wordlist bruteforce at all
-python3 api_discovery.py -t http://target --smart-chain --katana-only --headless
+# Katana only — no wordlist bruteforce
+python3 api_discovery.py \
+  -t http://target \
+  --smart-chain --katana-only --headless \
+  --openapi openapi_spec.yaml
 
 # Authenticated crawl — pass your session cookie to Katana
-python3 api_discovery.py -t http://target -w wordlist.txt --smart-chain --headless \
-  --katana-cookie "session=eyJhbGc..."
+python3 api_discovery.py \
+  -t http://target \
+  -w /usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt \
+  --smart-chain --headless \
+  --katana-cookie "session=eyJhbGc..." \
+  --openapi openapi_spec.yaml
 ```
 
 ### 2. `-f` / `--fuzz` (simple ffuf-only mode)
 
-Runs ffuf once (optionally across multiple `--methods`), then a JS-mining pass and
-path-parameter probing on top of whatever it found. No iterative response analysis.
+Runs ffuf once across the specified methods, then JS-mining and path-parameter probing
+on top of what it found. No iterative response analysis.
 
 ```bash
-python3 api_discovery.py -t http://target -w wordlist.txt -f --methods GET POST
+python3 api_discovery.py \
+  -t http://target \
+  -w /usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt \
+  -f --methods GET POST
 ```
 
 ### 3. `--chain-wordlists` (sequential wordlist chaining)
 
-Runs multiple wordlists in sequence, using endpoints found by one as a base path for
-fuzzing the next — useful for nested resource discovery (`/api/` → `/api/users/` →
-`/api/users/admin/`).
+Runs multiple wordlists in sequence, using endpoints found by one as the base path for
+fuzzing the next. Useful for nested resource discovery:
+`/api/` → `/api/users/` → `/api/users/admin/`.
 
 ```bash
-python3 api_discovery.py -t http://target \
-  --chain-wordlists common.txt api.txt admin.txt --recursive 2
+python3 api_discovery.py \
+  -t http://target \
+  --chain-wordlists \
+    /usr/share/seclists/Discovery/Web-Content/common-api-endpoints-mazen160.txt \
+    /usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt \
+    /usr/share/seclists/Discovery/Web-Content/big.txt \
+  --recursive 2
 ```
 
 ### 4. `-d` / `-a` (offline analysis)
@@ -151,6 +223,33 @@ new requests.
 
 ```bash
 python3 api_discovery.py -d ./ffuf_results_dir -a ./html_files -o results.txt
+```
+
+---
+
+## Full command (everything enabled)
+
+```bash
+python3 api_discovery.py \
+  -t http://127.0.0.1:5000 \
+  -w /usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt \
+  --smart-chain \
+  --headless \
+  --methods GET POST PUT DELETE \
+  --threads 40 \
+  --timeout 15 \
+  --retry 3 \
+  --max-iterations 5 \
+  --param-wordlist /usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt \
+  --param-fuzz-workers 8 \
+  --js-workers 10 \
+  --katana-depth 5 \
+  --openapi openapi_spec.yaml \
+  --api-title "My API" \
+  --api-version "1.0.0" \
+  -o results.txt \
+  -j results.json \
+  -od ./output
 ```
 
 ---
@@ -237,14 +336,13 @@ Running with `--smart-chain` and full export flags produces:
 
 ```
 output/
-├── smart_discovery_results.txt     # human-readable endpoint list (raw discovery phase)
-├── smart_discovery_results.json    # same, as JSON
-├── katana_output.jsonl             # raw Katana crawl records (if --katana/--headless used)
-├── ffuf_results_get.json           # raw ffuf output per method
+├── katana_output.jsonl              # raw Katana crawl records (--katana/--headless only)
+├── ffuf_results_get.json            # raw ffuf output per method
 ├── ffuf_results_post.json
-├── params_<method>_<endpoint>.json # raw ffuf output per parameter-fuzzing run
+├── ffuf_results_put.json
+├── ffuf_results_delete.json
+├── params_<method>_<endpoint>.json  # raw ffuf output per parameter-fuzzing run
 results.txt                          # final combined, deduplicated results
-results.json                         # same, as JSON
+results.json                         # same as above in JSON
 openapi_spec.yaml                    # generated OpenAPI 3.0 specification
 ```
-
