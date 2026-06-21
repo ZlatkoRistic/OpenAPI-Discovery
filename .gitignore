@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Tool output directories
+fuzzing_results/
+smart_fuzzing/
+katana_results/
+output/
+ffuf_matches/
+
+# Generated artifacts (results from running the tool)
+ffuf_results*.json
+smart_discovery_results.txt
+smart_discovery_results.json
+results.txt
+results.json
+openapi_spec.yaml
+openapi_spec.json
+api_discovery_results.txt
+
+# Large external wordlists — fetch via SecLists instead of committing
+wordlists/*.txt
+masterlist*.txt
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
