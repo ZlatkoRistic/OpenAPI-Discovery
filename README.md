@@ -55,8 +55,8 @@ message and skips that phase rather than crashing.
 ## Installation
 
 ```bash
-git clone https://github.com/<your-username>/<your-repo>.git
-cd <your-repo>
+git clone https://github.com/ZlatkoRistic/OpenAPI-Discovery.git
+cd OpenAPI-Discovery
 
 python3 -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
