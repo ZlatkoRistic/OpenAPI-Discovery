@@ -84,10 +84,6 @@ collection used across the security research community.
 ### Install SecLists
 
 ```bash
-# macOS
-brew install seclists
-# Installs to /usr/share/seclists or /opt/homebrew/share/seclists
-
 # Linux
 sudo apt install seclists
 # Installs to /usr/share/seclists
